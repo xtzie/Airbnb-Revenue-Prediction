@@ -1,0 +1,713 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Exploratory Data Analysis\n",
+    "It's \n",
+    "so feature engineering  \n",
+    "review predictor (host description, room description, sentiment analysis, word complexity, description length)  \n",
+    "AH. subdivide your listings first based on price. because you need to compare apples with apples\n",
+    "\n",
+    "base on the interquartile range  \n",
+    "acceptable  \n",
+    "above average  \n",
+    "great  \n",
+    "exceptional  \n",
+    "see the distribution, then turn into a classification problem  \n",
+    "\n",
+    "what else goes into a review score?  \n",
+    "did le-son use review and description together for topic modelling?  \n",
+    "price predictor with seasonality component  \n",
+    "accuracy classifier - class imbalance - use same features, but this is just a feature separate from the others  \n",
+    "NIP OUTLIERS(quartile range, fixed value), NUMERICIZE, NORMALIZE  \n",
+    "did le-son collapse some of the repeat columns?  \n",
+    "surprised that review score did not play a bigger role in the score  \n",
+    "perhaps it has more to do with occupancy  \n",
+    "can do AB testing - photo quality, lower price"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 70,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-16T01:38:34.429091Z",
+     "start_time": "2020-03-16T01:38:33.847200Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "sf (8587, 106)\n",
+      "<class 'pandas.core.frame.DataFrame'>\n",
+      "RangeIndex: 8587 entries, 0 to 8586\n",
+      "Columns: 106 entries, id to reviews_per_month\n",
+      "dtypes: float64(20), int64(23), object(63)\n",
+      "memory usage: 6.9+ MB\n"
+     ]
+    }
+   ],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "\n",
+    "from sklearn.preprocessing import QuantileTransformer, PowerTransformer\n",
+    "\n",
+    "pd.set_option('max_columns', 100)\n",
+    "pd.set_option('max_rows', 110)\n",
+    "\n",
+    "lapath = 'data/losangeles-13feb/listings (1).csv'\n",
+    "pathname = 'data/sf-12feb/listings (1).csv'\n",
+    "nypath = 'data/newyork-12feb/listings (1).csv'\n",
+    "\n",
+    "df = pd.read_csv(pathname)\n",
+    "print('sf', df.shape)\n",
+    "df.info()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 71,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-16T01:38:40.650937Z",
+     "start_time": "2020-03-16T01:38:40.616589Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "#we drop columns that don't have bearing on the customer\n",
+    "neededcolumns = ['id', 'listing_url', 'name', 'summary', 'space', 'description',\n",
+    "                 'neighborhood_overview', 'notes', 'transit', 'access', 'interaction', 'house_rules', \n",
+    "                 'host_id', 'host_url', 'host_since', 'host_about', 'host_response_time', \n",
+    "                 'host_response_rate', 'host_acceptance_rate', 'host_is_superhost', 'host_neighbourhood',\n",
+    "                'host_listings_count', 'host_has_profile_pic', 'host_identity_verified', \n",
+    "                'neighbourhood_cleansed', 'zipcode', 'latitude', 'longitude', 'property_type', 'room_type', \n",
+    "                'accommodates', 'bathrooms', 'bedrooms', 'beds', 'bed_type', 'amenities', 'price', 'weekly_price',\n",
+    "                'security_deposit', 'cleaning_fee', 'guests_included', 'extra_people', 'minimum_nights', 'maximum_nights',\n",
+    "                'number_of_reviews', 'number_of_reviews_ltm', 'first_review', 'last_review', 'review_scores_rating',\n",
+    "                'instant_bookable', 'is_business_travel_ready', 'cancellation_policy', 'require_guest_profile_picture',\n",
+    "                'require_guest_phone_verification', 'calculated_host_listings_count', 'reviews_per_month']\n",
+    "#what is this 'adjusted' nonsense. whtever don't include it\n",
+    "#how is availability used?\n",
+    "\n",
+    "df = df[neededcolumns]\n",
+    "\n",
+    "# df.info()\n",
+    "#normalize (why though - because we want it to correspond and predict natural phenomena) \n",
+    "#numericalize - because your computer deals best with that (convert into categoricals, or one hot encode)\n",
+    "# nip off outliers they can seriously skew your model - usually use points more or less than 4 quartiles\n",
+    "\n",
+    "#2 other things you can do for general hygiene\n",
+    "# create buckets for small data bits\n",
+    "# fill null values with the mean or some default value\n",
+    "\n",
+    "#create host experience - today() minus host since\n",
+    "#responsiveness = time to respond * rate\n",
+    "#host neighborhood - IF same as neighborhood - make it binary\n",
+    "#neighborhood has to be dummified\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-15T23:03:22.452360Z",
+     "start_time": "2020-03-15T23:01:04.224283Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "/home/xtzie/anaconda3/envs/metis/lib/python3.7/site-packages/pandas/core/frame.py:4238: SettingWithCopyWarning: \n",
+      "A value is trying to be set on a copy of a slice from a DataFrame\n",
+      "\n",
+      "See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy\n",
+      "  return super().rename(**kwargs)\n"
+     ]
+    },
+    {
+     "data": {
+      "application/vnd.jupyter.widget-view+json": {
+       "model_id": "e8f98e6be90c4fcbb21b66d3fc7ca06c",
+       "version_major": 2,
+       "version_minor": 0
+      },
+      "text/plain": [
+       "Tab(children=(HTML(value='<div id=\"overview-content\" class=\"row variable spacing\">\\n    <div class=\"row\">\\n   …"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "Report generated with <a href=\"https://github.com/pandas-profiling/pandas-profiling\">pandas-profiling</a>."
+      ],
+      "text/plain": [
+       "<IPython.core.display.HTML object>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/plain": []
+     },
+     "execution_count": 21,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "import pandas_profiling\n",
+    "\n",
+    "report = pandas_profiling.ProfileReport(df, html = {'style': {'full_width': True}})\n",
+    "report"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 72,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-16T01:38:44.661851Z",
+     "start_time": "2020-03-16T01:38:44.642473Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "#Some of these things have no direct (e.g ID) or \n",
+    "#limited effect (e.g almost all host require guest verification) on the actual product\n",
+    "#so they will be excluded first\n",
+    "excludefrommodel = ['id', 'listing_url', 'require_guest_phone_verification', \n",
+    "                    'latitude', 'longitude', 'is_business_travel_ready', 'maximum_nights', 'minimum_nights',\n",
+    "                    'host_id', 'host_url', 'host_has_profile_pic', 'host_listings_count']\n",
+    "\n",
+    "fornlp = ['access', 'description', 'host_about', 'house_rules', 'interaction', 'name', 'neighborhood_overview',\n",
+    "         'notes', 'space', 'summary', 'transit']\n",
+    "\n",
+    "\n",
+    "df.drop(labels = (excludefrommodel + fornlp), axis = 1, inplace = True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 82,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-16T01:44:01.836327Z",
+     "start_time": "2020-03-16T01:44:01.706795Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "#now we do our ftre engrg\n",
+    "import re\n",
+    "\n",
+    "def dollarformat(x):\n",
+    "    '''\n",
+    "    convert currency strings into interger amounts\n",
+    "    removes $ , and . \n",
+    "    converts str into int\n",
+    "    '''\n",
+    "    try: \n",
+    "        return round(int(re.sub('[$,,,.]', '', x))/100,1)\n",
+    "    except:\n",
+    "        return x\n",
+    "\n",
+    "\n",
+    "df['cleaning_fee'] = df['cleaning_fee'].map(lambda x: dollarformat(x))\n",
+    "df['extra_people'] = df['extra_people'].map(lambda x: dollarformat(x))\n",
+    "df['price'] = df['price'].map(lambda x: dollarformat(x))\n",
+    "df['security_deposit'] = df['security_deposit'].map(lambda x: dollarformat(x))\n",
+    "df['weekly_price'] = df['weekly_price'].map(lambda x: dollarformat(x))\n",
+    "# you will still have to deal with the null values\n",
+    "#how do you want to deal with that?\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 103,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-16T01:59:05.358689Z",
+     "start_time": "2020-03-16T01:59:05.316287Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<class 'pandas.core.frame.DataFrame'>\n",
+      "RangeIndex: 8587 entries, 0 to 8586\n",
+      "Data columns (total 35 columns):\n",
+      "host_since                        8587 non-null datetime64[ns]\n",
+      "host_response_time                7409 non-null object\n",
+      "host_response_rate                7409 non-null object\n",
+      "host_acceptance_rate              8062 non-null object\n",
+      "host_is_superhost                 8587 non-null object\n",
+      "host_neighbourhood                8060 non-null object\n",
+      "host_identity_verified            8587 non-null object\n",
+      "neighbourhood_cleansed            8587 non-null object\n",
+      "zipcode                           8563 non-null object\n",
+      "property_type                     8587 non-null object\n",
+      "room_type                         8587 non-null object\n",
+      "accommodates                      8587 non-null int64\n",
+      "bathrooms                         8581 non-null float64\n",
+      "bedrooms                          8584 non-null float64\n",
+      "beds                              8561 non-null float64\n",
+      "bed_type                          8587 non-null object\n",
+      "amenities                         8587 non-null object\n",
+      "price                             8587 non-null float64\n",
+      "weekly_price                      1045 non-null float64\n",
+      "security_deposit                  6836 non-null float64\n",
+      "cleaning_fee                      7645 non-null float64\n",
+      "guests_included                   8587 non-null int64\n",
+      "extra_people                      8587 non-null float64\n",
+      "number_of_reviews                 8587 non-null int64\n",
+      "number_of_reviews_ltm             8587 non-null int64\n",
+      "first_review                      6596 non-null datetime64[ns]\n",
+      "last_review                       6596 non-null datetime64[ns]\n",
+      "review_scores_rating              6547 non-null float64\n",
+      "instant_bookable                  8587 non-null object\n",
+      "cancellation_policy               8587 non-null object\n",
+      "require_guest_profile_picture     8587 non-null object\n",
+      "calculated_host_listings_count    8587 non-null int64\n",
+      "reviews_per_month                 6596 non-null float64\n",
+      "listing_age                       6596 non-null timedelta64[ns]\n",
+      "host_age                          8587 non-null timedelta64[ns]\n",
+      "dtypes: datetime64[ns](3), float64(10), int64(5), object(15), timedelta64[ns](2)\n",
+      "memory usage: 2.3+ MB\n"
+     ]
+    }
+   ],
+   "source": [
+    "#converting strings to date time\n",
+    "df.first_review = pd.to_datetime(df.first_review)\n",
+    "df.host_since = pd.to_datetime(df.host_since)\n",
+    "df.last_review = pd.to_datetime(df.last_review)\n",
+    "\n",
+    "df['listing_age'] = pd.datetime.today() - df.first_review\n",
+    "df['host_age'] = pd.datetime.today() - df.host_since"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 117,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-16T04:07:44.614194Z",
+     "start_time": "2020-03-16T04:07:44.518055Z"
+    }
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "array(['moderate', 'strict_14_with_grace_period', 'flexible',\n",
+       "       'super_strict_30', 'strict', 'super_strict_60', 'luxury_moderate'],\n",
+       "      dtype=object)"
+      ]
+     },
+     "execution_count": 117,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "def percentage(x):\n",
+    "    '''\n",
+    "    convert % strings into interger amounts\n",
+    "    removes % , and . \n",
+    "    converts str into int\n",
+    "    '''\n",
+    "    try: \n",
+    "        return round(int(re.sub('[%,,,.]', '', x))/100,2)\n",
+    "    except:\n",
+    "        return x\n",
+    "\n",
+    "df.host_acceptance_rate = df.host_acceptance_rate.map(lambda x: percentage(x))\n",
+    "df.host_response_rate = df.host_response_rate.map(lambda x: percentage(x))\n",
+    "\n",
+    "def responsetime(x):\n",
+    "    if x == 'a few days or more':\n",
+    "        return int(1)\n",
+    "    elif x == 'within a day':\n",
+    "        return int(2)\n",
+    "    elif x == 'within a few hours':\n",
+    "        return int(3)\n",
+    "    elif x == 'within an hour':\n",
+    "        return int(4)\n",
+    "    else:\n",
+    "        return x\n",
+    "    \n",
+    "df.host_response_time = df.host_response_time.map(lambda x : responsetime(x))\n",
+    "\n",
+    "\n",
+    "def truefalse(x):\n",
+    "    if x == 't':\n",
+    "        return 1\n",
+    "    if x == 'f':\n",
+    "        return 0\n",
+    "    else:\n",
+    "        return x\n",
+    "\n",
+    "df.host_is_superhost = df.host_is_superhost.map(lambda x : truefalse(x))\n",
+    "df.instant_bookable = df.instant_bookable.map(lambda x : truefalse(x))\n",
+    "df.host_identity_verified = df.host_identity_verified.map(lambda x : truefalse(x))\n",
+    "df.require_guest_profile_picture = df.require_guest_profile_picture.map(lambda x : truefalse(x))\n",
+    "# df.info()\n",
+    "df.cancellation_policy.unique()\n",
+    "\n",
+    "def cancels(x):\n",
+    "    if x == 'super_strict_60':\n",
+    "        return int(1)\n",
+    "    elif x == 'super_strict_30':\n",
+    "        return int(2)\n",
+    "    elif x == 'strict':\n",
+    "        return int(3)\n",
+    "    elif x == 'strict_14_with_grace_period':\n",
+    "        return int(4)\n",
+    "    else:\n",
+    "        return x"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 83,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-16T01:44:10.785310Z",
+     "start_time": "2020-03-16T01:44:10.759686Z"
+    }
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "number_of_reviews_ltm           reviews_per_month                 0.887092\n",
+       "accommodates                    beds                              0.801726\n",
+       "                                bedrooms                          0.759711\n",
+       "number_of_reviews               number_of_reviews_ltm             0.752502\n",
+       "bedrooms                        beds                              0.738970\n",
+       "number_of_reviews               reviews_per_month                 0.665236\n",
+       "accommodates                    guests_included                   0.561516\n",
+       "beds                            guests_included                   0.499729\n",
+       "bedrooms                        guests_included                   0.494326\n",
+       "bathrooms                       bedrooms                          0.346487\n",
+       "                                beds                              0.306656\n",
+       "accommodates                    bathrooms                         0.261388\n",
+       "number_of_reviews               calculated_host_listings_count    0.201153\n",
+       "number_of_reviews_ltm           calculated_host_listings_count    0.200517\n",
+       "calculated_host_listings_count  reviews_per_month                 0.173204\n",
+       "guests_included                 calculated_host_listings_count    0.134752\n",
+       "bathrooms                       guests_included                   0.119721\n",
+       "review_scores_rating            calculated_host_listings_count    0.118980\n",
+       "bedrooms                        reviews_per_month                 0.118469\n",
+       "beds                            calculated_host_listings_count    0.116733\n",
+       "bedrooms                        review_scores_rating              0.100965\n",
+       "                                calculated_host_listings_count    0.094117\n",
+       "                                number_of_reviews_ltm             0.089099\n",
+       "                                number_of_reviews                 0.081126\n",
+       "beds                            reviews_per_month                 0.077410\n",
+       "accommodates                    review_scores_rating              0.076716\n",
+       "bathrooms                       number_of_reviews                 0.076690\n",
+       "accommodates                    reviews_per_month                 0.076264\n",
+       "number_of_reviews_ltm           review_scores_rating              0.073287\n",
+       "accommodates                    calculated_host_listings_count    0.072490\n",
+       "guests_included                 review_scores_rating              0.070584\n",
+       "bathrooms                       reviews_per_month                 0.067006\n",
+       "review_scores_rating            reviews_per_month                 0.061611\n",
+       "bathrooms                       number_of_reviews_ltm             0.061283\n",
+       "number_of_reviews               review_scores_rating              0.058900\n",
+       "accommodates                    number_of_reviews                 0.058496\n",
+       "bathrooms                       review_scores_rating              0.055292\n",
+       "accommodates                    number_of_reviews_ltm             0.052042\n",
+       "beds                            review_scores_rating              0.050579\n",
+       "                                number_of_reviews_ltm             0.049536\n",
+       "                                number_of_reviews                 0.042800\n",
+       "guests_included                 number_of_reviews                 0.035567\n",
+       "                                number_of_reviews_ltm             0.026033\n",
+       "bathrooms                       calculated_host_listings_count    0.001679\n",
+       "guests_included                 reviews_per_month                 0.000690\n",
+       "dtype: float64"
+      ]
+     },
+     "execution_count": 83,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#the matrix is symmetric so we need to extract upper triangle matrix without diagonal (k = 1)\n",
+    "sol = (corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))\n",
+    "                 .stack()\n",
+    "                 .sort_values(ascending=False))\n",
+    "#first element of sol series is the pair with the bigest correlation\n",
+    "#https://stackoverflow.com/questions/17778394/list-highest-correlation-pairs-from-a-large-correlation-matrix-in-pandas\n",
+    "sol"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Helper Functions\n",
+    "We will create generalizable functions to clean our data:  \n",
+    "- outlier detection (data must be continuous)\n",
+    "- filling null values\n",
+    "- normalize and transform variables"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#need to clean security deposit\n",
+    "#transform amenities\n",
+    "\n",
+    "#LVA bucketing:\n",
+    "#host response rate\n",
+    "#host acceptance rate"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Feature Engineering\n",
+    "We create meaningful features from existing ones"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-15T17:55:06.610010Z",
+     "start_time": "2020-03-15T17:55:06.560476Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "/home/xtzie/anaconda3/envs/metis/lib/python3.7/site-packages/pandas/core/computation/expressions.py:194: UserWarning: evaluating in Python space because the '+' operator is not supported by numexpr for the bool dtype, use '|' instead\n",
+      "  op=op_str, alt_op=unsupported[op_str]\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "array([False,  True])"
+      ]
+     },
+     "execution_count": 3,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#JUNK CODE\n",
+    "\n",
+    "#CREATE COLUMN IF HOST LOCATION IS SAME AS LISTING PLACE\n",
+    "#how did le-son deal with the minimum and maximum nights? all values beyond a certain point\n",
+    "#default it to the mode\n",
+    "\n",
+    "\n",
+    "# we collapse guest info requirement into one column\n",
+    "df['test'] =  df['require_guest_profile_picture'].values == 't'\n",
+    "df['test2'] = df['require_guest_phone_verification'].values == 't'\n",
+    "df['require_guest_info'] = df['test'] + df['test2']\n",
+    "#df.drop(labels = ['require_guest_phone_verification', 'require_guest_profile_picture'], axis = 1, inplace = True)\n",
+    "# df['require_guest_info'] = df['require_guest_info'].values  >= 1\n",
+    "\n",
+    "#df.drop(labels = ['require_guest_phone_verification', 'require_guest_profile_picture'], axis = 1, inplace = True)\n",
+    "\n",
+    "\n",
+    "df['require_guest_info'].values\n",
+    "\n",
+    "df['require_guest_info'].unique()\n",
+    "\n",
+    "\n",
+    "#WWWWW does this logic hold? should test it. dang pandas. really suxxxxxxxxx"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-15T17:55:07.010691Z",
+     "start_time": "2020-03-15T17:55:06.614497Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "/home/xtzie/anaconda3/envs/metis/lib/python3.7/site-packages/numpy/lib/histograms.py:839: RuntimeWarning: invalid value encountered in greater_equal\n",
+      "  keep = (tmp_a >= first_edge)\n",
+      "/home/xtzie/anaconda3/envs/metis/lib/python3.7/site-packages/numpy/lib/histograms.py:840: RuntimeWarning: invalid value encountered in less_equal\n",
+      "  keep &= (tmp_a <= last_edge)\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "(array([ 224.,    0.,  735.,  379., 1179.,  160.,  535.,  954.,  203.,\n",
+       "         756.]),\n",
+       " array([-2.3683967 , -1.95766147, -1.54692624, -1.13619102, -0.72545579,\n",
+       "        -0.31472056,  0.09601466,  0.50674989,  0.91748512,  1.32822034,\n",
+       "         1.73895557]),\n",
+       " <a list of 10 Patch objects>)"
+      ]
+     },
+     "execution_count": 4,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "\n",
+    "\n",
+    "#can try a log then boxcox, but unlikely to yield much results. because this is not to do with magnitude\n",
+    "# it's got to do with frequency\n",
+    "\n",
+    "minthreshold = 91.5    \n",
+    "df['adjusted'] = df['review_scores_rating']\n",
+    "# df['adjusted'] = np.log(sf['adjusted'])\n",
+    "\n",
+    "qt = QuantileTransformer(output_distribution = 'normal')\n",
+    "pt = PowerTransformer(method = 'box-cox')\n",
+    "\n",
+    "df['adjusted'] = pt.fit_transform(df['adjusted'].values.reshape(-1,1))\n",
+    "df['adjusted'] = df['adjusted'] ** 2\n",
+    "df['adjusted'] = pt.fit_transform(df['adjusted'].values.reshape(-1,1))\n",
+    "df['adjusted'] = df['adjusted'] ** 2\n",
+    "df['adjusted'] = pt.fit_transform(df['adjusted'].values.reshape(-1,1))\n",
+    "# df['adjusted'] = df['adjusted'] ** 2\n",
+    "# df['adjusted'] = pt.fit_transform(df['adjusted'].values.reshape(-1,1))\n",
+    "# df['adjusted'] = df['adjusted'] ** 2\n",
+    "# df['adjusted'] = pt.fit_transform(df['adjusted'].values.reshape(-1,1))\n",
+    "\n",
+    "#WWWWWW can we apply box-cox twice?\n",
+    "\n",
+    "df['adjusted'].describe()\n",
+    "# plt.hist(sf[sf['number_of_reviews'] > 10]['review_scores_rating'])\n",
+    "\n",
+    "plt.hist(df[df['number_of_reviews'] > 3]['adjusted'])\n",
+    "\n",
+    "#so this is an interesting transformation, because we want to determine, exceptionally good\n",
+    "#and i suppose exceptionally bad\n",
+    "\n",
+    "#ANYHOW, FORGET THESE REVIEWS. MOVE ON"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2020-03-15T17:55:07.172991Z",
+     "start_time": "2020-03-15T17:55:07.013090Z"
+    }
+   },
+   "outputs": [
+    {
+     "ename": "NameError",
+     "evalue": "name 'sf' is not defined",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mNameError\u001b[0m                                 Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-5-803d6cfd0bbb>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m \u001b[0mx\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0msf\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0msf\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;34m'review_scores_rating'\u001b[0m\u001b[0;34m]\u001b[0m \u001b[0;34m<\u001b[0m\u001b[0;36m79\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;34m&\u001b[0m \u001b[0;34m(\u001b[0m\u001b[0msf\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;34m'number_of_reviews'\u001b[0m\u001b[0;34m]\u001b[0m \u001b[0;34m>\u001b[0m \u001b[0;36m7\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0msort_values\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mby\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;34m'review_scores_rating'\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mascending\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;32mFalse\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      2\u001b[0m \u001b[0mtest\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0msf\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0msf\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;34m'adjusted'\u001b[0m\u001b[0;34m]\u001b[0m \u001b[0;34m>\u001b[0m \u001b[0;36m4\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;34m&\u001b[0m \u001b[0;34m(\u001b[0m\u001b[0msf\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;34m'number_of_reviews'\u001b[0m\u001b[0;34m]\u001b[0m \u001b[0;34m>\u001b[0m \u001b[0;36m7\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0msort_values\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mby\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;34m'adjusted'\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mascending\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;32mFalse\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      3\u001b[0m \u001b[0mtest\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mhead\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mNameError\u001b[0m: name 'sf' is not defined"
+     ]
+    }
+   ],
+   "source": [
+    "x = sf[(sf['review_scores_rating'] <79) & (sf['number_of_reviews'] > 7)].sort_values(by = 'review_scores_rating', ascending = False)\n",
+    "test = sf[(sf['adjusted'] > 4) & (sf['number_of_reviews'] > 7)].sort_values(by = 'adjusted', ascending = False)\n",
+    "test.head()"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python [conda env:metis] *",
+   "language": "python",
+   "name": "conda-env-metis-py"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.4"
+  },
+  "toc": {
+   "base_numbering": 1,
+   "nav_menu": {},
+   "number_sections": false,
+   "sideBar": true,
+   "skip_h1_title": false,
+   "title_cell": "Table of Contents",
+   "title_sidebar": "Contents",
+   "toc_cell": false,
+   "toc_position": {},
+   "toc_section_display": true,
+   "toc_window_display": false
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
